@@ -66,9 +66,8 @@ def run_motion_correction(rec):
     """Apply TDDR + wavelet motion correction to a cedalion recording.
 
     Adds the following keys to ``rec``:
-    - ``od``            — optical density
-    - ``od_tddr``       — OD after TDDR
-    - ``od_wl``         — OD after TDDR + wavelet filtering
+    - ``od``            — optical density (unconrected)
+    - ``od_corrected``  — OD after TDDR + wavelet filtering
     - ``amp_corrected`` — corrected amplitude (back-converted from OD)
 
     Parameters
@@ -82,32 +81,32 @@ def run_motion_correction(rec):
         Same object with new keys added in-place.
     """
     rec["od"] = cw.int2od(rec["amp"])
-    rec["od_tddr"] = motion.tddr(rec["od"])
-    rec["od_wl"] = motion.wavelet(rec["od_tddr"])
-    rec["amp_corrected"] = cw.od2int(rec["od_wl"], rec["amp"].mean("time"))
+    rec["od_corrected"] = motion.tddr(rec["od"])
+    rec["od_corrected"] = motion.wavelet(rec["od_corrected"])
+    rec["amp_corrected"] = cw.od2int(rec["od_corrected"], rec["amp"].mean("time"))
     return rec
 
 
-def prune_channels(rec, perc_time_clean_corr, threshold):
+def prune_channels(rec, perc_time_clean, threshold):
     """Remove channels below a minimum percentage of clean time.
 
     Parameters
     ----------
     rec : cedalion Recording
         Recording with an ``amp`` timeseries.
-    perc_time_clean_corr : xarray.DataArray
-        Per-channel fraction of clean time after motion correction.
+    perc_time_clean : xarray.DataArray
+        Per-channel fraction of clean time used for the pruning decision.
     threshold : float
-        Channels with ``perc_time_clean_corr < threshold`` are pruned.
+        Channels with ``perc_time_clean < threshold`` are pruned.
 
     Returns
     -------
     rec : cedalion Recording
-        Same object with ``amp_pruned`` added.
+        Same object with ``amp_pruned`` and ``od_corrected_pruned`` added.
     pruned_channels : list
         Channel labels that were removed.
     """
-    selection_masks = [perc_time_clean_corr >= threshold]
+    selection_masks = [perc_time_clean >= threshold]
     rec["amp_pruned"], pruned_channels = quality.prune_ch(
         rec["amp"], selection_masks, "all"
     )
@@ -235,7 +234,7 @@ def _plot_correction_results(
                         wavelength=wl,
                     )
                     ax[i].plot(sel.time, sel, label=f"{wl:.0f} nm orig")
-                    sel = rec["od_wl"].sel(
+                    sel = rec["od_corrected"].sel(
                         time=slice(start - padding, end + padding),
                         channel=ch,
                         wavelength=wl,
@@ -281,8 +280,8 @@ def correct_and_prune(
     Returns
     -------
     rec : cedalion Recording
-        Same object with added keys: ``od``, ``od_tddr``, ``od_wl``,
-        ``amp_corrected``, ``amp_pruned``.
+        Same object with added keys: ``od``, ``od_corrected``,
+        ``amp_corrected``, ``amp_pruned``, ``od_corrected_pruned``.
     pruned_channels : list
         Channel labels removed during pruning.
     """
@@ -315,6 +314,7 @@ def correct_and_prune(
             combined_corr_mask,
             perc_time_clean,
             perc_time_clean_corr,
+            perc_threshold_low=perc_time_clean_threshold,
             example_channels=example_channels,
         )
 

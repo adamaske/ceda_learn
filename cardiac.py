@@ -7,6 +7,9 @@ import cedalion.nirs.cw as cw
 import cedalion.sigproc.frequency as frequency
 from cedalion import units
 
+import cedalion.sigproc.motion as motion
+import cedalion.sigproc.quality as quality
+
 from ceda_correction import correct_and_prune
 
 xr.set_options(display_expand_data=False)
@@ -15,7 +18,7 @@ xr.set_options(display_expand_data=False)
 filepath = (
     r"C:\nirs\data\RH-data\Patient02\2026-01-21\2026-01-21_002\2026-01-21_002.snirf"
 )
-outpath = r"cardiac_data_autonomic.snirf"
+outpath = r"cardiac_pruned.snirf"
 
 rec = snirf_io.read_snirf(filepath)[0]
 print(f"===={filepath}====")
@@ -59,23 +62,23 @@ rec, pruned_channels = correct_and_prune(
     sci_threshold=0.75,
     psp_threshold=0.03,
     window_length=10 * units.s,
-    perc_time_clean_threshold=0.5,
+    perc_time_clean_threshold=0.65,
     example_channels=["S1D1", "S4D5"],
-    visualize=True,
+    visualize=False,
 )
-plt.show()
+# plt.show()
 
 print(f"Pruned channels: {pruned_channels}")
+
 
 print("====Temporal Filtering====")
 fmin = 0.01 * units.Hz
 fmax = 0.2 * units.Hz
 order = 5
-rec["od"] = frequency.freq_filter(rec["od"], fmin, fmax)
-rec["od_wl"] = frequency.freq_filter(rec["od_wl"], fmin, fmax)
+rec["od_corrected"] = frequency.freq_filter(rec["od_corrected"], fmin, fmax)
 
 print("====Wavelengths====")
-wls = rec["od_wl"].wavelength.values
+wls = rec["od_corrected"].wavelength.values
 print(wls)
 
 print("====MBLL====")
@@ -85,8 +88,8 @@ dpf = xr.DataArray(
     coords={"wavelength": wls},
 )
 
-rec["conc"] = cw.od2conc(rec["od"], rec.geo3d, dpf)
-rec["conc_corrected"] = cw.od2conc(rec["od_wl"], rec.geo3d, dpf)
+rec["conc_corrected"] = cw.od2conc(rec["od_corrected"], rec.geo3d, dpf)
 
 print("====Output====")
 snirf_io.write_snirf(outpath, rec)
+print(f"Wrote .snirf to {outpath}")
