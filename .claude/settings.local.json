@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import cedalion.nirs.cw as cw; help\\(cw.od2conc\\)\")",
+      "Bash(python *)"
+    ]
+  }
+}

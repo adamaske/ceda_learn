@@ -1,4 +1,3 @@
-# Cardiac analysis
 import xarray as xr
 import matplotlib.pyplot as plt
 
@@ -16,10 +15,11 @@ xr.set_options(display_expand_data=False)
 
 # Load data
 filepath = (
-    r"C:\nirs\data\RH-data\Patient02\2026-01-21\2026-01-21_002\2026-01-21_002.snirf"
+r"C:\nirs\data\2026-01-23\2026-01-23_002\2026-01-23_002.snirf"
 )
 
-outpath = r"cardiac_pruned.snirf"
+outpath = r"audio_corrected.snirf"
+
 rec = snirf_io.read_snirf(filepath)[0]
 print(f"===={filepath}====")
 print(rec)
@@ -94,29 +94,3 @@ print("====Output====")
 snirf_io.write_snirf(outpath, rec)
 print(f"Wrote .snirf to {outpath}")
 
-print("====TOI====")
-# Tissue Oxygenation Index
-# 1. Calculate total hemoglobin
-# 2. Ratio of HbO to HbT
-# 3. <75% is a desatriation phase.
-conc = rec["conc_corrected"]
-hbo = conc.sel(chromo="HbO")
-hbr = conc.sel(chromo="HbR")
-hbt = hbo + hbr
-
-# TOI = HbO / (HbO + HbR) * 100  =  HbO / HbT * 100
-toi = (hbo / hbt) * 100
-toi_mean = toi.mean(dim="channel")
-
-time = toi_mean.time.values
-
-fig, ax = plt.subplots(figsize=(12, 5))
-ax.plot(time, toi_mean.values, color="tab:red", lw=1.0, label="TOI (HbO/HbT)")
-ax.axhline(75, color="k", ls="--", lw=1.0, label="75% desaturation threshold")
-ax.fill_between(time, 0, 75, color="red", alpha=0.08)
-ax.set_xlabel("Time [s]")
-ax.set_ylabel("TOI [%]")
-ax.set_title("Tissue Oxygenation Index over time (channel-averaged)")
-ax.legend(loc="best")
-plt.tight_layout()
-plt.show()
